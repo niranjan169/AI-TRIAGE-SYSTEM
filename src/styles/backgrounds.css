@@ -1,0 +1,213 @@
+/* Beautiful Page-Specific Background Images */
+
+/* Patient Dashboard Background - Warm, welcoming hospital environment */
+.patient-dashboard-new {
+    position: relative;
+}
+
+.patient-dashboard-new::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(rgba(15, 12, 41, 0.75), rgba(15, 12, 41, 0.75)),
+        url('https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=1920&q=90') center/cover no-repeat fixed;
+    z-index: -2;
+}
+
+/* Admin Dashboard Background - High-tech medical command center */
+.admin-dashboard {
+    position: relative;
+}
+
+.admin-dashboard::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(rgba(10, 10, 30, 0.8), rgba(10, 10, 30, 0.8)),
+        url('https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1920&q=90') center/cover no-repeat fixed;
+    z-index: -2;
+}
+
+/* Smart Assessment Background - Medical examination/diagnosis theme */
+.smart-assessment-page {
+    position: relative;
+}
+
+.smart-assessment-page::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(rgba(12, 15, 35, 0.8), rgba(12, 15, 35, 0.8)),
+        url('https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=1920&q=90') center/cover no-repeat fixed;
+    z-index: -2;
+}
+
+/* Login Page Background - Professional healthcare entrance */
+.login-page {
+    position: relative;
+}
+
+.login-page::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(rgba(15, 12, 41, 0.8), rgba(15, 12, 41, 0.8)),
+        url('https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=90') center/cover no-repeat fixed;
+    z-index: -2;
+}
+
+/* Doctor Test Page Background - Medical professionals team */
+.doctor-test-container {
+    position: relative;
+}
+
+.doctor-test-container::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(rgba(10, 10, 30, 0.82), rgba(10, 10, 30, 0.82)),
+        url('https://images.unsplash.com/photo-1666214280557-f1b5022eb634?w=1920&q=90') center/cover no-repeat fixed;
+    z-index: -2;
+}
+
+/* Glowing Orbs Effect */
+.glow-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    animation: orbFloat 20s ease-in-out infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.glow-orb-1 {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, transparent 70%);
+    top: -200px;
+    left: -200px;
+    animation-delay: 0s;
+}
+
+.glow-orb-2 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(20, 184, 166, 0.3) 0%, transparent 70%);
+    bottom: -250px;
+    right: -250px;
+    animation-delay: 5s;
+}
+
+.glow-orb-3 {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: 10s;
+}
+
+@keyframes orbFloat {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(30px, -30px) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-30px, 30px) scale(0.9);
+    }
+}
+
+/* Shimmer Effect for Cards */
+.card-shimmer {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-shimmer::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.1) 50%,
+            transparent 70%);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+}
+
+/* Pulse Glow Effect */
+.pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+    }
+}
+
+/* Gradient Border Animation */
+.gradient-border {
+    position: relative;
+    background: linear-gradient(135deg, #10b981, #14b8a6, #06b6d4);
+    background-size: 200% 200%;
+    animation: gradientBorder 3s ease infinite;
+}
+
+@keyframes gradientBorder {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
