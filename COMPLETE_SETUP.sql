@@ -1,0 +1,240 @@
+-- 🏥 COMPLETE HOSPITAL SYSTEM SETUP - RUN THIS FIRST
+-- This creates ALL tables in the correct order
+-- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/lkgxijbsdspuygatamdq/editor/sql
+
+-- ============================================
+-- STEP 1: CREATE BASE TABLES
+-- ============================================
+
+-- Create assessments table
+CREATE TABLE IF NOT EXISTS assessments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id TEXT NOT NULL,
+  patient_name TEXT NOT NULL,
+  age INTEGER,
+  gender TEXT,
+  symptoms TEXT[],
+  vitals JSONB,
+  medical_history TEXT,
+  risk_level TEXT,
+  risk_score INTEGER,
+  department TEXT,
+  confidence INTEGER,
+  reasoning TEXT,
+  document_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create appointments table
+CREATE TABLE IF NOT EXISTS appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_id TEXT NOT NULL,
+  assessment_id UUID REFERENCES assessments(id),
+  patient_name TEXT NOT NULL,
+  appointment_date DATE NOT NULL,
+  appointment_slot TEXT,
+  time_range TEXT,
+  department TEXT,
+  risk_level TEXT,
+  priority_score INTEGER,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create doctors table
+CREATE TABLE IF NOT EXISTS doctors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  specialization TEXT NOT NULL,
+  department TEXT NOT NULL,
+  status TEXT DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'BUSY', 'ON_CALL', 'OFFLINE')),
+  is_backup BOOLEAN DEFAULT false,
+  max_appointments_per_day INTEGER DEFAULT 10,
+  current_appointments_today INTEGER DEFAULT 0,
+  email TEXT,
+  phone TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('patient', 'admin')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- STEP 2: ADD DOCTOR COLUMNS TO APPOINTMENTS
+-- ============================================
+
+ALTER TABLE appointments 
+ADD COLUMN IF NOT EXISTS doctor_id UUID REFERENCES doctors(id),
+ADD COLUMN IF NOT EXISTS doctor_name TEXT,
+ADD COLUMN IF NOT EXISTS estimated_time TEXT,
+ADD COLUMN IF NOT EXISTS queue_position INTEGER,
+ADD COLUMN IF NOT EXISTS waiting_time_minutes INTEGER DEFAULT 0;
+
+-- ============================================
+-- STEP 3: CREATE INDEXES
+-- ============================================
+
+CREATE INDEX IF NOT EXISTS idx_assessments_patient ON assessments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
+CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+CREATE INDEX IF NOT EXISTS idx_doctors_specialization ON doctors(specialization);
+CREATE INDEX IF NOT EXISTS idx_doctors_department ON doctors(department);
+CREATE INDEX IF NOT EXISTS idx_doctors_status ON doctors(status);
+CREATE INDEX IF NOT EXISTS idx_doctors_backup ON doctors(is_backup);
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_date_status ON appointments(appointment_date, status);
+
+-- ============================================
+-- STEP 4: INSERT DOCTORS
+-- ============================================
+
+INSERT INTO doctors (name, specialization, department, status, is_backup, max_appointments_per_day) VALUES
+-- Emergency Department (High Risk)
+('Dr. Sarah Johnson', 'Emergency Medicine', 'Emergency Department', 'AVAILABLE', false, 10),
+('Dr. Michael Chen', 'Emergency Medicine', 'Emergency Department', 'AVAILABLE', false, 10),
+('Dr. Emily Rodriguez', 'Emergency Medicine', 'Emergency Department', 'AVAILABLE', false, 10),
+('Dr. James Wilson', 'Emergency Medicine', 'Emergency Department', 'ON_CALL', true, 15),
+
+-- Cardiology (Chest Pain, Heart Issues)
+('Dr. Robert Anderson', 'Cardiology', 'Cardiology', 'AVAILABLE', false, 10),
+('Dr. Lisa Thompson', 'Cardiology', 'Cardiology', 'AVAILABLE', false, 10),
+('Dr. David Martinez', 'Cardiology', 'Cardiology', 'AVAILABLE', false, 10),
+('Dr. Jennifer Lee', 'Cardiology', 'Cardiology', 'ON_CALL', true, 15),
+
+-- Neurology (Head Injury, Stroke, Confusion)
+('Dr. William Brown', 'Neurology', 'Neurology', 'AVAILABLE', false, 10),
+('Dr. Amanda Davis', 'Neurology', 'Neurology', 'AVAILABLE', false, 10),
+('Dr. Christopher Taylor', 'Neurology', 'Neurology', 'AVAILABLE', false, 10),
+('Dr. Michelle Garcia', 'Neurology', 'Neurology', 'ON_CALL', true, 15),
+
+-- General Medicine (Low-Medium Risk)
+('Dr. Daniel White', 'General Practice', 'General Practice', 'AVAILABLE', false, 10),
+('Dr. Jessica Harris', 'General Practice', 'General Practice', 'AVAILABLE', false, 10),
+('Dr. Matthew Clark', 'General Practice', 'General Practice', 'AVAILABLE', false, 10),
+('Dr. Rachel Lewis', 'General Practice', 'General Practice', 'ON_CALL', true, 15),
+
+-- Urgent Care (Medium Risk)
+('Dr. Andrew Walker', 'Urgent Care', 'Urgent Care', 'AVAILABLE', false, 10),
+('Dr. Nicole Hall', 'Urgent Care', 'Urgent Care', 'AVAILABLE', false, 10),
+('Dr. Kevin Allen', 'Urgent Care', 'Urgent Care', 'AVAILABLE', false, 10),
+('Dr. Stephanie Young', 'Urgent Care', 'Urgent Care', 'ON_CALL', true, 15)
+ON CONFLICT DO NOTHING;
+
+-- ============================================
+-- STEP 5: CREATE FUNCTIONS
+-- ============================================
+
+-- Function to reset daily appointment counts
+CREATE OR REPLACE FUNCTION reset_daily_appointments()
+RETURNS void AS $$
+BEGIN
+  UPDATE doctors SET current_appointments_today = 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get available doctor
+CREATE OR REPLACE FUNCTION get_available_doctor(
+  p_department TEXT,
+  p_appointment_date DATE,
+  p_risk_level TEXT
+)
+RETURNS UUID AS $$
+DECLARE
+  v_doctor_id UUID;
+BEGIN
+  -- Try to find available doctor (not backup) with capacity
+  SELECT id INTO v_doctor_id
+  FROM doctors
+  WHERE department = p_department
+    AND is_backup = false
+    AND status IN ('AVAILABLE', 'ON_CALL')
+    AND current_appointments_today < max_appointments_per_day
+  ORDER BY 
+    CASE WHEN status = 'AVAILABLE' THEN 0 ELSE 1 END,
+    current_appointments_today ASC
+  LIMIT 1;
+
+  -- If no regular doctor available, try backup
+  IF v_doctor_id IS NULL THEN
+    SELECT id INTO v_doctor_id
+    FROM doctors
+    WHERE department = p_department
+      AND is_backup = true
+      AND status IN ('AVAILABLE', 'ON_CALL')
+      AND current_appointments_today < max_appointments_per_day
+    ORDER BY current_appointments_today ASC
+    LIMIT 1;
+  END IF;
+
+  -- Update doctor's appointment count
+  IF v_doctor_id IS NOT NULL THEN
+    UPDATE doctors 
+    SET current_appointments_today = current_appointments_today + 1,
+        status = CASE 
+          WHEN current_appointments_today + 1 >= max_appointments_per_day THEN 'BUSY'
+          ELSE status
+        END
+    WHERE id = v_doctor_id;
+  END IF;
+
+  RETURN v_doctor_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- STEP 6: DISABLE RLS FOR DEMO
+-- ============================================
+
+ALTER TABLE assessments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE appointments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE doctors DISABLE ROW LEVEL SECURITY;
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- STEP 6.5: INSERT DEMO USERS
+-- ============================================
+
+INSERT INTO users (email, password, name, role) VALUES
+('patient@demo.com', 'password123', 'Demo Patient', 'patient'),
+('admin@demo.com', 'admin123', 'Demo Admin', 'admin')
+ON CONFLICT (email) DO NOTHING;
+
+-- ============================================
+-- STEP 7: VERIFY SETUP
+-- ============================================
+
+-- Check tables exist
+SELECT 
+  'Tables Created' as step,
+  COUNT(*) FILTER (WHERE table_name = 'assessments') as assessments_table,
+  COUNT(*) FILTER (WHERE table_name = 'appointments') as appointments_table,
+  COUNT(*) FILTER (WHERE table_name = 'doctors') as doctors_table
+FROM information_schema.tables
+WHERE table_schema = 'public' 
+  AND table_name IN ('assessments', 'appointments', 'doctors');
+
+-- Check doctors inserted
+SELECT 
+  department,
+  COUNT(*) as total_doctors,
+  COUNT(*) FILTER (WHERE is_backup = false) as regular_doctors,
+  COUNT(*) FILTER (WHERE is_backup = true) as backup_doctors
+FROM doctors
+GROUP BY department
+ORDER BY department;
+
+-- Success message
+SELECT '✅ Complete hospital system created successfully!' as status,
+       '20 doctors added across 5 departments' as doctors,
+       'All tables and functions ready' as tables;
